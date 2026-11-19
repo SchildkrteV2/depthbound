@@ -1,12 +1,14 @@
 class_name Audio
 extends Node
-## Sound effects and music, all synthesized in code at start-up (no audio files needed).
+## Sound effects and music, synthesized in code (baked once into assets/audio/sounds.res).
 ## Two buses, "SFX" and "Music", so the settings screen can set their volumes.
 ## play("hit") plays a short effect; music("calm" / "boss") switches the background loop.
 
 const RATE := 22050
 const MUSIC_RATE := 16000
 const POOL := 12
+## Pre-generated sounds + music (tools/bake_audio.gd); synthesized at start-up only if missing.
+const BANK := "res://assets/audio/sounds.res"
 
 var _sounds := {}
 var _players: Array[AudioStreamPlayer] = []
@@ -31,6 +33,12 @@ func _ready() -> void:
 	_music_player.bus = "Music"
 	_music_player.volume_db = -6.0
 	add_child(_music_player)
+	# Load the pre-baked sound bank (instant). Only if it is missing, synthesize everything.
+	var bank: SoundBank = load(BANK) as SoundBank if ResourceLoader.exists(BANK) else null
+	if bank and not bank.sounds.is_empty():
+		_sounds = bank.sounds.duplicate()
+		_tracks = bank.music.duplicate()
+		return
 	_build_sounds()
 	# Music takes a moment to synthesize, so do it off the main thread.
 	_thread = Thread.new()

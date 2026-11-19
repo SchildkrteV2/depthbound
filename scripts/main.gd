@@ -182,6 +182,17 @@ func _ready() -> void:
 	add_child(_overlay_layer)
 
 	go_to_menu()
+	_signal_web_ready()
+
+
+## Web build: tells the page's loading screen (web/shell.html) that the menu is on screen, so
+## it can fade out. Waits two frames so the menu has actually been drawn.
+func _signal_web_ready() -> void:
+	if not OS.has_feature("web"):
+		return
+	await get_tree().process_frame
+	await get_tree().process_frame
+	JavaScriptBridge.eval("window.depthboundReady && window.depthboundReady()", true)
 
 
 func _process(delta: float) -> void:

@@ -293,3 +293,13 @@ Weapons (found as upgrade choices): Sword (110° slash), Twin Daggers (fast shor
   - Monsters move 15% faster.
 - **Dodge**: a quicker, longer dash (72 px in 0.17 s).
   - During the dash and for 0.12 s after it (`DODGE_GRACE`), the ghost is see-through (pale blue, 38% opacity) and can't be hurt (`Player.phase_t`).
+
+### v1.0.2 — Web release
+- **Hosting**: the web build lives in `docs/` and is served by GitHub Pages.
+  - It's an installable phone app (PWA): fullscreen, landscape, and a service worker so later launches load from the device cache.
+- **No Godot splash**: `boot_splash/show_image` is off, and a custom page (`web/shell.html`) shows a Depthbound loading screen with a floating ghost and a progress bar.
+  - The game calls `window.depthboundReady()` once the menu is drawn (`main._signal_web_ready`), then the loading screen fades. There's a 20 s safety timeout.
+- **Faster start**: sounds and music are baked once into `assets/audio/sounds.res` (`tools/bake_audio.gd`) instead of being synthesized at every start, which took about 1 s on the web.
+- **Updating the site**:
+  1. Export the "Web" preset to `docs/index.html`.
+  2. Commit and push.
