@@ -1,0 +1,10 @@
+# Godot's cache (rebuilt automatically)
+.godot/
+# Windows build output (upload the zip as a GitHub Release instead)
+builds/
+export/
+# Claude Code local settings
+.claude/
+# Old reference sprite sheet (not used by the game; kept local only)
+assets/hero/
+assets/source/
