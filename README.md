@@ -6,7 +6,13 @@ Workshop, and push your Heat level.
 
 ## Play
 
-**In your browser:** https://YOUR-NAME.github.io/depthbound/ (works on PC and phones)
+**Play:** https://schildkrtev2.github.io/depthbound/ (PC and phones)
+
+**Install it like an app on your phone:** open the link, then
+- Android (Chrome): menu ⋮ → "Add to Home screen" / "Install app"
+- iPhone (Safari): Share button → "Add to Home Screen"
+
+It then starts from its own icon, fullscreen and in landscape, and keeps your saves.
 
 Controls (PC): WASD / arrows to move, Space or left mouse to attack (hold the mouse to aim),
 Shift or right mouse to dodge, Q/E/R/F for boss powers, Esc to pause.
