@@ -567,6 +567,36 @@ func _run() -> void:
 	_check(pl.phase_t > 0.0 and pl.hp == hp_d, "the dodge keeps protecting you just after the dash")
 	await create_timer(Player.DODGE_GRACE + 0.1).timeout
 	_check(pl.phase_t == 0.0, "the dodge protection ends shortly after")
+	# --- leveling: run levels, perks, Ghost Level ---
+	var lv0 := pl.level
+	var dm0 := pl.damage_mult
+	main.gain_xp(Leveling.need(pl.level))
+	_check(pl.level == lv0 + 1 and pl.damage_mult > dm0, "kill XP levels the run up (+damage)")
+	while pl.level % Leveling.PERK_EVERY != 0:
+		main.gain_xp(Leveling.need(pl.level) - pl.xp)
+	await _frames(2)
+	_check(main.modal and main._upgrade_context == "perk", "every 5th level offers a perk")
+	var hp_v := pl.max_hp
+	main._on_upgrade_chosen("perk:vigor")
+	await _frames(1)
+	_check("vigor" in pl.perks and pl.max_hp == hp_v + 3 and not main.modal, "picking a perk applies it and closes")
+	_check(Leveling.perk_choices(pl.class_id, pl.perks, 99).all(func(o: Dictionary) -> bool: return o["id"] != "perk:vigor"), "taken perks are not offered again")
+	var saved_pl := pl.to_dict()
+	_check(int(saved_pl["level"]) == pl.level and "vigor" in saved_pl["perks"], "run level and perks are saved")
+	if not "second_soul" in pl.perks:
+		pl.perks.append("second_soul")
+	pl.soul_used = false
+	pl.invuln = 0.0
+	pl.phase_t = 0.0
+	pl.block = 0.0
+	pl.take_damage(pl.hp + 50)
+	_check(not pl.dead and pl.hp == 2 and pl.soul_used, "Second Soul survives a killing blow")
+	var gl0 := Leveling.ghost_level()
+	var sh0 := int(Profile.data.get("shards", 0))
+	var glines := Leveling.add_ghost_xp(Leveling.ghost_need(gl0) - Leveling.ghost_xp())
+	_check(Leveling.ghost_level() == gl0 + 1 and glines.size() == 1 and int(Profile.data["shards"]) > sh0, "Ghost Level goes up and pays shards")
+	for cls in Classes.ORDER:
+		_check(Leveling.perk_choices(cls, []).size() == 3, "%s has perks to pick" % cls)
 	# --- cursed idol (slot machine) ---
 	var idol := EventNode.new()
 	idol.main = main

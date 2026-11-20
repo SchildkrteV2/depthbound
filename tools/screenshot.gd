@@ -79,7 +79,16 @@ func _go(main: Node) -> void:
 	p.use_ability(0)
 	for i in 8:
 		await physics_frame
+	main.gain_xp(Leveling.need(1) + 6)
+	for i in 4:
+		await physics_frame
 	await _snap("shot_game.png")
+	while p.level < 5:
+		main.gain_xp(Leveling.need(p.level) - p.xp)
+	for i in 30:
+		await process_frame
+	await _snap("shot_perk.png")
+	main._on_upgrade_chosen("perk:haunt")
 	# Every regular enemy walking toward you.
 	var kinds := ["slime", "bat", "spider", "skeleton", "bomber", "ghost", "cultist", "brute", "golem", "slimelet"]
 	for i in kinds.size():

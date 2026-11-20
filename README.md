@@ -1,6 +1,7 @@
-# Depthbound
+# Ghostbound
 
-A fast top-down roguelike: you are a little ghost diving ever deeper into a generated dungeon.
+You died on floor 999. Now you are a little ghost, and your body is still down there.
+A fast top-down roguelike: dive through a generated dungeon, level up, pick perks, and take your body back.
 Devour bosses for their powers, loot gear, send monster parts up the Loot Lift, craft in the
 Workshop, and push your Heat level.
 

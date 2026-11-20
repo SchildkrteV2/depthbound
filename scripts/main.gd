@@ -96,6 +96,13 @@ var _pending_power: Dictionary = {}
 var _pending_gear: Dictionary = {}
 ## Tests switch random gear drops off so a dropped piece cannot open a dialog mid-test.
 var gear_drops := true
+## Perk picks waiting for the next moment no other panel is open.
+var _pending_perks := 0
+## Floor 999: where the ghost's body lies (the story's goal).
+const BODY_FLOOR := 999
+var _reunite_offered := false
+## XP earned this run (also added to the Ghost Level).
+var run_xp := 0
 var _unstable_t := 0.0
 var _rock_t := 0.0
 var _last_hue := 0.0
@@ -293,6 +300,9 @@ func start_new_run(slot_index: int, cls: String, start_depth := 1, daily := fals
 	bosses_killed = 0
 	revive_used = false
 	bag = {}
+	run_xp = 0
+	_reunite_offered = false
+	_pending_perks = 0
 	extracted = false
 	run_seed = Profile.today().hash() if daily else (Grind.week_id() * 31337 + 7 if is_weekly else randi())
 	_spawn_player()
@@ -302,6 +312,7 @@ func start_new_run(slot_index: int, cls: String, start_depth := 1, daily := fals
 	Sprites.prewarm_hero(cls, player.look)
 	# Workshop bonuses crafted from extracted monster parts.
 	Materials.apply_to(player)
+	Leveling.apply_ghost(player) # permanent Ghost Level bonus
 	if Profile.crafted_level("heart_forge") > 0:
 		player.add_power(_forged_power())
 	var blessings := int((start_depth - 1) / 10.0) * 3 + (1 if Profile.has("heirloom") else 0)
@@ -337,6 +348,9 @@ func continue_run(slot_index: int) -> void:
 	run_start_depth = int(data.get("start_depth", 1))
 	revive_used = data.get("revive_used", false)
 	bag = data.get("bag", {})
+	run_xp = int(data.get("run_xp", 0))
+	_reunite_offered = depth >= BODY_FLOOR
+	_pending_perks = 0
 	extracted = false
 	_spawn_player()
 	player.apply_class(class_id)
@@ -366,6 +380,7 @@ func save_run() -> void:
 		"player": player.to_dict(),
 		"heat": heat,
 		"start_depth": run_start_depth,
+		"run_xp": run_xp,
 	}
 	if is_daily:
 		data["daily"] = Profile.today()
@@ -642,7 +657,12 @@ func _build_level() -> void:
 		e.position = cell_center(cell)
 		level.add_child(e)
 
-	var lines: Array[String] = ["Depth %d  -  %s" % [depth, biome["name"]]]
+	var lines: Array[String] = ["Floor %d of 999  -  %s" % [depth, biome["name"]]]
+	if depth == 1:
+		lines.append("You died on floor 999. Your body is still down there.")
+	if depth >= BODY_FLOOR and not _reunite_offered:
+		_reunite_offered = true
+		_offer_reunite.call_deferred()
 	# Long-term goals: best depth per heat, heat unlocks, depth bounties.
 	if not is_daily and not is_weekly and Grind.on_depth(heat, depth, depth - run_start_depth + 1):
 		lines.append("HEAT %d UNLOCKED - pick it on the class screen" % Grind.heat_max())
@@ -817,6 +837,7 @@ func _on_enemy_killed(e: Enemy) -> void:
 		_drop("heart", 1, pos)
 	_drop_parts(e, pos)
 	_drop_gear(e, pos)
+	gain_xp(Leveling.xp_for_kill(e))
 	if e.is_boss:
 		bosses_killed += 1
 		for i in 4:
@@ -1002,6 +1023,8 @@ func _on_player_died() -> void:
 	if not bag.is_empty():
 		lost = "Lost (never sent up): " + Materials.describe(bag)
 	bag = {}
+	var ghost_line := "Reached level %d (+%d XP)   Ghost Level %d" % [player.level, run_xp, Leveling.ghost_level()]
+	lost = ghost_line + ("\n" + lost if lost != "" else "")
 	save_run() # alive = false, keeps best depth
 	await get_tree().create_timer(1.0).timeout
 	if game_over and playing:
@@ -1067,6 +1090,93 @@ func _mode_text() -> String:
 	return "  |  ".join(parts)
 
 
+## Kill XP: levels up the run (small boost each level, a perk pick every 5th) and feeds
+## the permanent Ghost Level.
+func gain_xp(amount: int) -> void:
+	if amount <= 0 or not is_instance_valid(player):
+		return
+	run_xp += amount
+	player.xp += amount
+	while player.xp >= Leveling.need(player.level):
+		player.xp -= Leveling.need(player.level)
+		player.level += 1
+		_level_up()
+	for line in Leveling.add_ghost_xp(amount):
+		show_banner(line, 3.0)
+		sfx("power", -6.0)
+
+
+func _level_up() -> void:
+	var lv := player.level
+	player.damage_mult *= 1.0 + Leveling.LEVEL_DAMAGE
+	var text := "+3% damage"
+	if lv % Leveling.HP_EVERY == 0:
+		player.max_hp += 1
+		text += ", +1 max HP"
+	player.heal(1)
+	spawn_puff(player.global_position, Color(0.7, 0.95, 1.0), 14.0)
+	sfx("power", -4.0)
+	if lv % Leveling.PERK_EVERY == 0 and not Leveling.perk_choices(class_id, player.perks).is_empty():
+		_pending_perks += 1
+		if not modal and not game_over:
+			_offer_perk.call_deferred()
+	else:
+		show_banner("Level %d  -  %s" % [lv, text], 2.0)
+	_refresh_hud()
+
+
+func _offer_perk() -> void:
+	if _pending_perks <= 0 or modal or game_over or not playing or not is_instance_valid(player) or player.dead:
+		return
+	var opts := Leveling.perk_choices(class_id, player.perks)
+	if opts.is_empty():
+		_pending_perks = 0
+		return
+	_pending_perks -= 1
+	_open_modal()
+	_upgrade_context = "perk"
+	sfx("power")
+	hud.show_upgrades(opts, "Level %d! Your ghost grows stronger - choose a perk" % player.level)
+
+
+func _apply_perk(id: String) -> void:
+	player.perks.append(id)
+	match id:
+		"vigor":
+			player.max_hp += 3
+			player.hp = player.max_hp
+		"haunt":
+			player.damage_mult *= 1.15
+			player.speed *= 1.08
+		"bulwark":
+			player.block += 0.15
+			player.max_hp += 2
+			player.hp += 2
+		"cleave":
+			player.range_mult *= 1.25
+			player.damage_mult *= 1.1
+		"assassin":
+			player.crit += 0.1
+			player.crit_damage += 0.5
+		"fleet":
+			player.speed *= 1.12
+			player.dodge_cooldown *= 0.75
+		"eagle_eye":
+			player.range_mult *= 1.2
+			player.crit += 0.08
+		"quiver":
+			player.max_charges = mini(player.max_charges + 1, MAX_CHARGES + 1)
+			player.charges = player.max_charges
+			player.reload_mult *= 1.2
+		"arcane_flow":
+			player.cdr_mult *= 1.3
+			player.damage_mult *= 1.1
+		"mana_well":
+			player.reload_mult *= 1.35
+	show_banner("Perk: %s\n%s" % [Leveling.PERKS[id]["name"], Leveling.PERKS[id]["desc"]], 2.5)
+	_refresh_hud()
+
+
 func _open_modal() -> void:
 	modal = true
 	get_tree().paused = true
@@ -1076,6 +1186,8 @@ func _close_modal() -> void:
 	hud.hide_all()
 	modal = false
 	get_tree().paused = false
+	if _pending_perks > 0 and playing and not game_over:
+		_offer_perk.call_deferred()
 
 
 # ---------------------------------------------------------------- stairs & upgrades
@@ -1168,6 +1280,9 @@ func _apply_curse() -> String:
 
 
 func _apply_upgrade(id: String) -> void:
+	if id.begins_with("perk:"):
+		_apply_perk(id.trim_prefix("perk:"))
+		return
 	if id.begins_with("weapon:"):
 		if player.equipment.has("weapon"): # a bought weapon replaces the dropped one and its boon
 			Gear.apply(player, player.equipment["weapon"], -1)
@@ -1466,6 +1581,32 @@ func _show_shop(ev: EventNode) -> void:
 	hud.show_dialog("Wandering Trader", "\"Gold for power, friend.\"   You have %d gold." % gold, opts)
 
 
+## Floor 999: the ghost finds its body. End the run in triumph, or keep haunting deeper.
+func _offer_reunite() -> void:
+	if modal or game_over or not playing:
+		return
+	_open_modal()
+	sfx("power")
+	hud.show_dialog("Floor 999", "There it is: your own body, right where you fell.\nStep back into it and end your haunting, or keep drifting deeper as a ghost.", [
+		{"id": "reunite", "label": "Take your body back (end run, x3 shards)"},
+		{"id": "leave", "label": "Keep haunting deeper"},
+	])
+
+
+func _reunite() -> void:
+	hud.hide_all()
+	modal = false
+	game_over = true
+	Profile.data["reunited"] = int(Profile.data.get("reunited", 0)) + 1
+	var shards := _end_run(3.0)
+	bag = {}
+	extracted = true
+	save_run()
+	get_tree().paused = true
+	hud.show_game_over(depth, gold, kills, best_depth, shards, true, "You are whole again. Reached level %d." % player.level)
+	hud.set_game_over_title("REUNITED!")
+
+
 func _on_dialog_chosen(id: String) -> void:
 	# Boss power replacement.
 	if id.begins_with("replace:") or id == "skip_power":
@@ -1490,6 +1631,9 @@ func _on_dialog_chosen(id: String) -> void:
 		_pending_gear = {}
 		_close_modal()
 		_refresh_hud()
+		return
+	if id == "reunite":
+		_reunite()
 		return
 	if id == "extract":
 		extract()

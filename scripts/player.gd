@@ -48,6 +48,12 @@ var magnet := 1.0 # pickup pull range
 var stair_heal := 1 # HP healed on every staircase
 var execute := 0.0 # bonus damage vs foes under 30% HP
 var gear_find := 1.0 # gear drop chance multiplier
+## Run level (see Leveling): XP from kills, perks picked every 5th level.
+var level := 1
+var xp := 0
+var perks: Array = []
+var soul_used := false
+var _shadow_t := 0.0
 ## Equipped gear: {"head": item, "body": item, "weapon": item} (see Gear).
 var equipment := {}
 
@@ -87,7 +93,7 @@ var _pad_power := 1.0
 const SAVED_STATS := ["class_id", "max_hp", "hp", "speed", "weapon", "damage_mult", "range_mult",
 	"reload_mult", "crit", "crit_damage", "max_charges", "dodge_cooldown", "luck",
 	"actives", "passives", "curses", "look", "cdr_mult", "gold_mult", "block", "kill_heal", "magnet",
-	"stair_heal", "execute", "gear_find", "equipment"]
+	"stair_heal", "execute", "gear_find", "equipment", "level", "xp", "perks", "soul_used"]
 
 # Devoured boss powers (see Abilities) and curses from the plunge stairs.
 var actives: Array = [] # [{type, id, name, tier}]
@@ -238,11 +244,17 @@ func request_dodge() -> void:
 	# See-through and untouchable for the whole dash plus a short grace after it.
 	phase_t = DODGE_DURATION + DODGE_GRACE
 	invuln = maxf(invuln, phase_t)
+	if has_perk("shadow_strike"):
+		_shadow_t = DODGE_DURATION + 1.0
 	_dodge_hit.clear()
 	main.sfx("dodge")
 
 
 # ------------------------------------------------------------------ boss powers
+
+func has_perk(id: String) -> bool:
+	return id in perks
+
 
 func has_passive(id: String) -> bool:
 	for p in passives:
@@ -431,6 +443,8 @@ func on_kill(e: Enemy) -> void:
 		main.spawn_puff(global_position, Color(0.9, 0.2, 0.3), 8.0)
 	if has_passive("volatile") and not e.is_boss:
 		_player_blast(e.global_position, 30.0, 0.05, 20.0 * power_mult(), 0.0)
+	if has_perk("nova") and randf() < 0.3:
+		_player_blast(e.global_position, 40.0, 0.05, 25.0 * power_mult(), 0.0)
 
 
 # ------------------------------------------------------------------ update
@@ -440,6 +454,7 @@ func _physics_process(delta: float) -> void:
 		return
 	atk_cd = maxf(atk_cd - delta, 0.0)
 	phase_t = maxf(phase_t - delta, 0.0)
+	_shadow_t = maxf(_shadow_t - delta, 0.0)
 	attack_anim = maxf(attack_anim - delta * float(weapon_def()["anim"]), 0.0)
 	no_ammo_flash = maxf(no_ammo_flash - delta, 0.0)
 	invuln = maxf(invuln - delta, 0.0)
@@ -547,6 +562,8 @@ func _attack() -> void:
 		_echo_dir = dir
 		_echo_power = power
 	_strike(dir, power)
+	if has_perk("shockwave") and _attack_count % 4 == 0:
+		_player_blast(global_position, 52.0, 0.06, 25.0 * power_mult(), 0.4)
 
 
 ## Current damage multiplier: upgrades, Bloodlust and curses.
@@ -633,13 +650,18 @@ func _strike(dir: Vector2, power: float) -> void:
 
 
 func _shoot(dir: Vector2, w: Dictionary, dmg: float, r: float) -> void:
-	var p := Projectile.new()
-	var spd := float(w["speed"])
-	p.setup(dir * spd, dmg, true, r / spd, int(w.get("pierce", 0)))
-	p.source = self
-	p.origin = global_position
-	p.style = w.get("style", "arrow")
-	main.spawn(p, global_position + dir * 8.0)
+	var dirs := [dir]
+	if has_perk("volley") and _attack_count % 3 == 0: # Volley: two extra arrows
+		dirs.append(dir.rotated(0.22))
+		dirs.append(dir.rotated(-0.22))
+	for d: Vector2 in dirs:
+		var p := Projectile.new()
+		var spd := float(w["speed"])
+		p.setup(d * spd, dmg, true, r / spd, int(w.get("pierce", 0)))
+		p.source = self
+		p.origin = global_position
+		p.style = w.get("style", "arrow")
+		main.spawn(p, global_position + d * 8.0)
 
 
 ## Chain lightning: first target in a cone in front, then jumps to nearby enemies.
@@ -699,7 +721,7 @@ func deal_damage(e: Node, base: float, dir: Vector2) -> void:
 		dmg *= Grind.codex_bonus(e.kind) # Monster Codex mastery
 	if execute > 0.0 and e is Enemy and e.hp < e.max_hp * 0.3:
 		dmg *= 1.0 + execute
-	var is_crit := randf() < crit
+	var is_crit := randf() < crit or _shadow_t > 0.0
 	if is_crit:
 		dmg *= crit_damage
 		main.hit_stop(0.045)
@@ -773,6 +795,12 @@ func take_damage(amount: int, _from_dir: Vector2 = Vector2.ZERO) -> void:
 		invuln = 1.5
 		main.show_banner("Second Wind!", 1.5)
 		main.spawn_puff(global_position, Color(1, 1, 0.6), 16.0)
+	if hp <= 0 and has_perk("second_soul") and not soul_used:
+		soul_used = true
+		hp = 2
+		invuln = 1.5
+		main.show_banner("Second Soul!", 1.5)
+		main.spawn_puff(global_position, Color(0.7, 0.9, 1.0), 16.0)
 	stats_changed.emit()
 	if hp <= 0:
 		dead = true

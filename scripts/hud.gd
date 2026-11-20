@@ -25,6 +25,8 @@ var _dodge_fill: ColorRect
 var _weapon_label: Label
 var _hp_fill: ColorRect
 var _hp_label: Label
+var _xp_fill: ColorRect
+var _xp_label: Label
 var _depth_label: Label
 var _gold_label: Label
 var _banner: Label
@@ -83,6 +85,22 @@ func _ready() -> void:
 	_hp_label = _label(11)
 	_hp_label.position = Vector2(HP_BAR_WIDTH + 10, -3)
 	bar_bg.add_child(_hp_label)
+	# Run level: thin XP bar under the health bar.
+	var xp_bg := ColorRect.new()
+	xp_bg.color = Color(0, 0, 0, 0.6)
+	xp_bg.custom_minimum_size = Vector2(HP_BAR_WIDTH + 4, 5)
+	xp_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stats.add_child(xp_bg)
+	_xp_fill = ColorRect.new()
+	_xp_fill.color = Color(0.55, 0.9, 1.0)
+	_xp_fill.position = Vector2(2, 1)
+	_xp_fill.size = Vector2(0, 3)
+	_xp_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	xp_bg.add_child(_xp_fill)
+	_xp_label = _label(10)
+	_xp_label.position = Vector2(HP_BAR_WIDTH + 10, -6)
+	_xp_label.add_theme_color_override("font_color", Color(0.6, 0.92, 1.0))
+	xp_bg.add_child(_xp_label)
 
 	var combat_row := HBoxContainer.new()
 	combat_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -232,7 +250,7 @@ func _ready() -> void:
 	var go_box := VBoxContainer.new()
 	go_box.add_theme_constant_override("separation", 8)
 	_gameover_title = _label(26)
-	_gameover_title.text = "YOU DIED"
+	_gameover_title.text = "YOU FADED"
 	_gameover_title.add_theme_color_override("font_color", Color(0.95, 0.3, 0.3))
 	_gameover_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	go_box.add_child(_gameover_title)
@@ -277,6 +295,8 @@ func _process(delta: float) -> void:
 		_dodge_fill.size.x = 28.0 * ready
 		_dodge_fill.color = Color(0.65, 0.5, 1.0) if ready >= 1.0 else Color(0.35, 0.28, 0.55)
 		_weapon_label.text = " " + String(player.weapon_def()["name"])
+		_xp_fill.size.x = HP_BAR_WIDTH * clampf(float(player.xp) / Leveling.need(player.level), 0.0, 1.0)
+		_xp_label.text = "Lv %d" % player.level
 	_fps_label.visible = GameSettings.values["show_fps"]
 	if _fps_label.visible:
 		_fps_label.text = "%d FPS" % Engine.get_frames_per_second()
@@ -315,7 +335,7 @@ func show_hint(text: String) -> void:
 func refresh(hp: int, max_hp: int, depth: int, biome_name: String, gold: int, kills: int, modifier := "", parts := 0) -> void:
 	_hp_fill.size.x = HP_BAR_WIDTH * clampf(float(hp) / max_hp, 0.0, 1.0)
 	_hp_label.text = "%d / %d" % [hp, max_hp]
-	_depth_label.text = "Depth %d  |  %s" % [depth, biome_name] + ("  |  " + modifier if modifier != "" else "")
+	_depth_label.text = "Floor %d / 999  |  %s" % [depth, biome_name] + ("  |  " + modifier if modifier != "" else "")
 	_gold_label.text = "Gold %d    Kills %d" % [gold, kills] + ("    Parts %d" % parts if parts > 0 else "")
 
 
@@ -394,7 +414,7 @@ func _enable_after(buttons: Array[Button]) -> void:
 
 func show_game_over(depth: int, gold: int, kills: int, best: int, shards := 0, extracted := false, parts_line := "") -> void:
 	hide_all()
-	_gameover_title.text = "EXTRACTED!" if extracted else "YOU DIED"
+	_gameover_title.text = "EXTRACTED!" if extracted else "YOU FADED"
 	_gameover_title.add_theme_color_override("font_color", Color(0.45, 0.95, 0.55) if extracted else Color(0.95, 0.3, 0.3))
 	_retry_button.text = "New run" if extracted else "Try again"
 	var text := "Reached depth %d   (best %d)\nGold %d   Kills %d\n+%d Soul Shards" % [depth, best, gold, kills, shards]
@@ -448,3 +468,7 @@ static func _label(size: int) -> Label:
 	l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return l
+
+
+func set_game_over_title(text: String) -> void:
+	_gameover_title.text = text

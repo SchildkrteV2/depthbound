@@ -60,10 +60,15 @@ func _ready() -> void:
 	_slots_page = _page()
 	var v := _slots_page.get_child(0) as VBoxContainer
 	var title := HUD._label(32)
-	title.text = "DEPTHBOUND"
+	title.text = "GHOSTBOUND"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_color_override("font_color", Color(0.85, 0.8, 1.0))
 	v.add_child(title)
+	var tag := HUD._label(10)
+	tag.text = "You died on floor 999. Your body is still down there. Go get it back."
+	tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	tag.add_theme_color_override("font_color", Color(0.6, 0.85, 0.9, 0.85))
+	v.add_child(tag)
 	_shards_label = HUD._label(11)
 	_shards_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_shards_label.add_theme_color_override("font_color", Color(0.75, 0.6, 1.0))
@@ -303,6 +308,8 @@ func _show_page(p: Control) -> void:
 func show_slots() -> void:
 	_show_page(_slots_page)
 	_shards_label.text = "Soul Shards: %d     Deepest: %d" % [int(Profile.data.get("shards", 0)), int(Profile.data.get("best_depth", 0))]
+	var g := Leveling.ghost_level()
+	_shards_label.text += "\nGhost Level %d   (%d / %d XP)   %s" % [g, Leveling.ghost_xp(), Leveling.ghost_need(g), Leveling.ghost_bonus_text(g)]
 	for c in _slot_rows.get_children():
 		_slot_rows.remove_child(c)
 		c.queue_free()

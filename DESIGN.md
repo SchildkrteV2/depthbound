@@ -1,4 +1,4 @@
-# DEPTHBOUND — design brainstorm
+# GHOSTBOUND (formerly Depthbound) — design brainstorm
 
 > Working title. Other ideas: *Deeper*, *Below*, *The Long Descent*, *Hollowdeep*, *Stairfall*, *Lantern & Bone*.
 
@@ -303,3 +303,27 @@ Weapons (found as upgrade choices): Sword (110° slash), Twin Daggers (fast shor
 - **Updating the site**:
   1. Export the "Web" preset to `docs/index.html`.
   2. Commit and push.
+
+### v1.1 — Ghostbound: story, rebrand and leveling
+- **Story**: you died on floor 999 and are now a ghost. Your body is still down there, so you descend to take it back.
+  - The menu and loading screen show this as a tagline; floor 1 repeats it.
+  - The HUD reads "Floor N / 999".
+  - Dying again is "YOU FADED".
+  - Reaching floor 999 offers a choice: take your body back (ends the run with ×3 shards, title "REUNITED!", counted in `Profile.data.reunited`) or keep haunting deeper.
+- **Rebrand**: the game is now called Ghostbound, with a ghost app icon (`icon.svg`) and a renamed loading screen, window title, PWA name and Windows exe.
+  - `config/custom_user_dir_name` still points at `Godot/app_userdata/Depthbound`, so PC saves carry over.
+  - The web URL (`/depthbound/`) and the internal JS hook `depthboundReady` keep their old names.
+- **Run level** (`scripts/leveling.gd`):
+  - Kills give XP: 1 for normal foes, 2 for brutes, golems and cultists, ×3 for elites, 25 for bosses.
+  - Reaching the next level takes `10 + 5×level` XP, which works out to roughly level 7 by floor 10 and level 14 by floor 20.
+  - Each level gives +3% damage and heals 1. Every 3rd level adds +1 max HP.
+  - Every 5th level offers a choice of 3 perks: 3 universal ones plus 3 for each class.
+    - Unique-mechanic perks: Shockwave, Shadow Strike, Volley, Arcane Nova, Second Soul.
+    - The rest are strong stat bundles.
+  - The level, XP, perks and `soul_used` are saved with the run.
+  - A perk choice that comes up while another panel is open waits until that panel closes (`_pending_perks`).
+- **Ghost Level** (account):
+  - All XP from every run also feeds a permanent level that needs `150 + 50×level` XP.
+  - Each level pays `10 + 2×level` shards plus two kinds of monster parts. Every 5th level also pays a Boss Heart.
+  - Permanent bonus: +1% damage per level (up to +50%) and +1 max HP per 10 levels (up to +3).
+  - The menu shows the Ghost Level and its bonus; the game-over screen shows the run's level and XP.

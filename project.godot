@@ -10,8 +10,10 @@ config_version=5
 
 [application]
 
-config/name="Depthbound"
-config/description="Top-down roguelike dungeon crawler. Go deeper."
+config/name="Ghostbound"
+config/use_custom_user_dir=true
+config/custom_user_dir_name="Godot/app_userdata/Depthbound"
+config/description="You died on floor 999. Now you are a ghost, and your body is still down there."
 run/main_scene="res://scenes/main.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 config/icon="res://icon.svg"
