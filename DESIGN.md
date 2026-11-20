@@ -327,3 +327,13 @@ Weapons (found as upgrade choices): Sword (110° slash), Twin Daggers (fast shor
   - Each level pays `10 + 2×level` shards plus two kinds of monster parts. Every 5th level also pays a Boss Heart.
   - Permanent bonus: +1% damage per level (up to +50%) and +1 max HP per 10 levels (up to +3).
   - The menu shows the Ghost Level and its bonus; the game-over screen shows the run's level and XP.
+
+### v1.1.1 — Browser sound fix and boss arenas
+- **Browser sound**: the web build plays sounds through the browser's own audio system ("sample" playback).
+  - That system only knows about audio buses that exist when the game starts. The SFX and Music buses used to be added at runtime, so every sound was created but never played.
+  - They are now declared in `default_bus_layout.tres`. `Audio._ensure_bus` is now only a fallback.
+- **Boss floors** are one big arena (`DungeonGenerator.arena`):
+  - A rounded hall of 40×30 tiles, growing slowly with depth, with four 2×2 pillars for cover.
+  - You start at the bottom; the boss and the locked stairs are at the top.
+  - No other monsters spawn, apart from anything the boss summons itself.
+  - The Loot Lift stands beside the start.

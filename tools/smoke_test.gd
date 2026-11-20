@@ -238,6 +238,8 @@ func _run() -> void:
 	await _frames(10)
 	var bosses := get_nodes_in_group("enemies").filter(func(e): return e.is_boss)
 	_check(main.depth == 10 and bosses.size() == 1 and main.stairs.locked, "floor 10 has a generated boss: %s" % (bosses[0].title if bosses.size() else "none"))
+	_check(get_nodes_in_group("enemies").size() == 1 and main.dungeon.w <= 52, "boss floor is one arena with only the boss")
+	_check(AudioServer.get_bus_index("SFX") == 1 and AudioServer.get_bus_index("Music") == 2, "SFX and Music buses come from the bus layout")
 	var powers_before: int = p.actives.size() + p.passives.size()
 	p.actives = []
 	p.passives = []

@@ -553,7 +553,11 @@ func _build_level() -> void:
 	var w := mini(rng.randi_range(48, 64) + depth * 2, 110)
 	var h := mini(rng.randi_range(34, 46) + depth, 72)
 	var rooms_max := mini(rng.randi_range(8, 12) + int(depth / 2.0), 24)
-	var data := DungeonGenerator.new().generate(w, h, rooms_max, rng)
+	var data: Dictionary
+	if is_boss_floor(): # boss floors: one big arena, just you and the boss
+		data = DungeonGenerator.new().arena(mini(40 + int(depth / 10.0), 52), mini(30 + int(depth / 20.0), 36), rng)
+	else:
+		data = DungeonGenerator.new().generate(w, h, rooms_max, rng)
 	dungeon = Dungeon.new()
 	dungeon.setup(data, biome)
 	level.add_child(dungeon)
@@ -592,7 +596,9 @@ func _build_level() -> void:
 		elevator.main = self
 		elevator.locked = is_boss_floor()
 		var lift_pos := cell_center(lift_room.get_center())
-		if lift_room == far_room:
+		if is_boss_floor(): # beside the start, out of the fight
+			lift_pos = cell_center(start_room.get_center()) + Vector2(TILE * 7, 0)
+		elif lift_room == far_room:
 			lift_pos += Vector2(TILE * 2, 0)
 		elevator.position = lift_pos
 		level.add_child(elevator)
@@ -644,7 +650,7 @@ func _build_level() -> void:
 		boss.position = cell_center(far_room.get_center()) + Vector2(0, -24)
 		level.add_child(boss)
 		hud.boss = boss
-		count = int(count / 2.0)
+		count = 0 # the boss fights alone
 
 	var elite_chance := minf(0.05 + depth * 0.004, 0.2) + 0.04 * heat
 	if "elite_horde" in mutators:
